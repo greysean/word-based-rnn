@@ -1,0 +1,5 @@
+# word-based-rnn
+
+This program should train an rnn model on thousands of book titles to generate new titles with words as a unit. is is adapted from https://www.tensorflow.org/text/tutorials/text_generation. 
+
+
