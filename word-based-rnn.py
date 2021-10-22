@@ -43,7 +43,7 @@ all_ids = ids_from_words(data)
 ids_dataset = tf.data.Dataset.from_tensor_slices(all_ids)
 
 seq_length = 20
-examples_per_epoch = len(text)//(seq_length+1)
+# examples_per_epoch = len(text)//(seq_length+1)
 
 sequences = ids_dataset.batch(seq_length+1, drop_remainder=True)
 
@@ -71,7 +71,7 @@ dataset = (
 
 
 # Length of the vocabulary in chars
-vocab_size = len(vocab)
+# vocab_size = len(vocab)
 
 # The embedding dimension
 embedding_dim = 16
@@ -114,8 +114,20 @@ for input_example_batch, target_example_batch in dataset.take(1):
 
 print(model.summary())
 
-model.compile(optimizer="adam", loss="mse", metrics=["accuracy"])
 
-for batch_data, batch_target in dataset:
-  model.fit(batch_data, batch_target, BATCH_SIZE)
+loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+model.compile(optimizer="adam", loss=loss, metrics=["accuracy"])
+
+checkpoint_dir = './training_checkpoints'
+
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
+
+checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_prefix,
+    save_weights_only=True)
+
+EPOCHS = 1
+
+history = model.fit(dataset, epochs=EPOCHS, callbacks=[checkpoint_callback])
 
