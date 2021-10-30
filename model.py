@@ -6,7 +6,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import tensorflow as tf
 from tensorflow.keras import layers
-print('tensorflow version:', tf.__version__)
 
 import numpy as np
 import time
@@ -40,7 +39,7 @@ class OneStep(tf.keras.Model):
     self.temperature = temperature
     self.model = model
     self.words_from_ids = words_from_ids
-    self.ids_from_ = ids_from_words
+    self.ids_from_words = ids_from_words
 
     # Create a mask to prevent "[UNK]" from being generated.
     skip_ids = self.ids_from_words(['[UNK]'])[:, None]
@@ -56,10 +55,10 @@ class OneStep(tf.keras.Model):
   def generate_one_step(self, inputs, states=None):
     # Convert strings to token IDs.
     input_words = tf.strings.unicode_split(inputs, 'UTF-8')
-    input_ids = self.ids_from_words(input_chars).to_tensor()
+    input_ids = self.ids_from_words(input_words).to_tensor()
 
     # Run the model.
-    # predicted_logits.shape is [batch, char, next_char_logits]
+    # predicted_logits.shape is [batch, word, next_word_logits]
     predicted_logits, states = self.model(inputs=input_ids, states=states,
                                           return_state=True)
     # Only use the last prediction.
@@ -149,6 +148,7 @@ def build_model(epochs = 1):
         rnn_units=rnn_units)
 
     for input_example_batch, target_example_batch in dataset.take(1):
+        print(input_example_batch)
         example_batch_predictions = model(input_example_batch)
         print(example_batch_predictions.shape, "# (batch_size, sequence_length, vocab_size)")
 
@@ -167,10 +167,24 @@ def build_model(epochs = 1):
         save_weights_only=True)
 
     history = model.fit(dataset, epochs=epochs, callbacks=[checkpoint_callback])
-
+    
     one_step_model = OneStep(model, words_from_ids, ids_from_words)
 
-    tf.saved_model.save(one_step_model, "rnn_book_titles")
+    start = time.time()
+    states = None
+    next_word = tf.constant(['The'])
+    result = [next_word]
+
+    for n in range(10):
+        next_word, states = one_step_model.generate_one_step(next_word, states=states)
+        result.append(next_word)
+
+    result = tf.strings.join(result, separator = " ")
+    end = time.time()
+    print(result[0].numpy().decode('utf-8'), '\n\n' + '_'*80)
+    print('\nRun time:', end - start)
+    tf.saved_model.save(one_step_model, "./saved_models/rnn_book_titles")
+
     return one_step_model
 
 build_model()
