@@ -20,7 +20,10 @@ states = None
 next_word = tf.constant(['The'])
 result = [next_word]
 
-for n in range(1000):
+for n in range(4):
+  print("next_word iteration" )
+  print(n)
+  print( next_word)
   next_word, states = one_step_model.generate_one_step(next_word, states=states)
   result.append(next_word)
 
