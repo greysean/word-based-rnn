@@ -7,6 +7,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import re
 import tensorflow as tf
 from tensorflow.keras import layers
+from nltk import word_tokenize
 
 class RNNTextModel(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, rnn_units, ids_from_words, words_from_ids):
@@ -66,9 +67,9 @@ def clean_and_tokenize_doc(doc):
     return tokenized_doc
 
 def tokenize_documents(documents):
-    return [word for doc in documents for word in clean_doc(doc)]
+    return [word for doc in documents for word in clean_and_tokenize_doc(doc)]
 
-docs = read_text()
+docs = read_files()
 tokens = tokenize_documents(docs)
 
 print('Total Tokens: %d' % len(tokens))
@@ -138,9 +139,6 @@ def generate_sentence(seed=['The'], length=10):
     result = [next_word]
 
     for i in range(length):
-        print('The %s next_word is %s with shape %s' % (i, next_word, next_word.shape))
-        print('Result: %s' % (result))
-        print('states: %s' % (states))
         next_word, states = generate_one_step(next_word, states)
         result.append(next_word)
     result = tf.strings.join(result, " ")[0]
@@ -148,5 +146,4 @@ def generate_sentence(seed=['The'], length=10):
 
 
 result = generate_sentence()
-
-
+print(result)
