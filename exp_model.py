@@ -9,6 +9,17 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from nltk import word_tokenize
 
+# Constants
+
+PATH = "./texts/"
+EMBEDDING_DIM = 16
+RNN_UNITS = 64
+EPOCHS = 1
+
+SEQ_LENGTH = 20
+BATCH_SIZE = 64
+BUFFER_SIZE = 10000 # might be too high for word processing?
+
 class RNNTextModel(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, rnn_units, ids_from_words, words_from_ids):
         super().__init__(self)
@@ -37,7 +48,7 @@ def read_files():
     Returns: array of strings
     '''
     docs = []
-    path = './texts/'
+    path = PATH
     filelist = os.listdir(path)
     for f in filelist:
         file = open(os.path.join(path + f), 'r')
@@ -60,6 +71,7 @@ def clean_and_tokenize_doc(doc):
    # normalize quotes (make same ascii character)
 
    # handle special characters
+   # e.g. one result was this: tf.Tensor([b'The opt operates us\xe2\x80\x94holy 2011\xe2\x80\x94 Collaboration facilities Logistic 1000 gained parallel'], shape=(1,), dtype=string)
 
    # tokenize document
 
@@ -91,14 +103,6 @@ def text_from_ids(ids):
 all_ids = ids_from_words(tokens)
 ids_dataset = tf.data.Dataset.from_tensor_slices(all_ids)
 
-# Constants (to be moved to top)
-SEQ_LENGTH = 20
-BATCH_SIZE = 64
-BUFFER_SIZE = 10000 # might be too high for word processing?
-
-EMBEDDING_DIM = 16
-RNN_UNITS = 64
-EPOCHS = 1
 
 def split_input_target(sequence):
         return sequence[:-1], sequence[1:]
