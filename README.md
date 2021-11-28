@@ -4,32 +4,45 @@ This program should train an rnn model on thousands of book titles to generate n
 
 ## to do
 
-I re-wrote the model with new texts in exp_model.py. To run:
+To run:
 
 ```
 source ~/.env/tensorflow/bin/activate
-python exp_model.py.
+python main.py.
 ```
 
-note that the model is currently not being trained, but it doesn't need to be trained in order to get all of this functionality working.
+### cannot generate text from loading saved model
+I cannot for the life of me figure out how to make this work.
 
 ### text processing considerations
 
-- [ ] add code for text cleaning
-  - see exp_model.py function ```clean_and_tokenize_doc()```
+- [X] add code for text cleaning: DONE
+  - remove metadata markup
+  - remove formatting tags
+  - remove muse links
+  - remove footnotes
+  - replace non-ascii smartquotes with plain
+  -
+#### tokenizer
 
-notes:
+- tokenizing is hard. keras' built-in Tokenizer doesn't have enough flexibility. doesn't allow for flexibility to e.g. use regex to filter tokens. nltk has a great library.
 
-I thought about using keras' built-in Tokenizer but it doesn't allow for flexibility to e.g. use regex to filter tokens, which is needed to account for things like paragraphs, markup tags, etc.
+#### headers
 
-I decided to use nltk because tokenizing is hard and they have libraries devoted to it
+a lot of french philosophy texts have headers that break the text into numbered or named sections. i think we should try to keep this format since it's so distinct to the style, and i could see it easily fitting into a tweet.
 
-texts need to be cleaned according to decisions we make. I've included notes in exp_model.py to get us started; here are other thoughts:
+#### tags
 
-  - lines beginning with # (i.e. metadata) need to be removed
-  - decisions about how to tokenize quotes and other markup
-    - do we want to keep quote tags?
-    - we definitely want to remove formatting, e.g. ```<strong></strong>, <em></em>, <br/>```
+- We should remove formatting tags, e.g. ``<strong></strong> <em></em> <br/>``, but keep quotes and verses.
+
+#### paragraphs
+at some point it might make sense to keep track of these. ignoring them for now.
+
+#### special characters
+
+- to see all unique tags use ```grep -rohi "<[^>]*>" texts/ | sort --unique```
+- to see all non-ascii characters use ``grep -rohi -P '[^\x00-\x7F]' texts | sort --unique ``
+
     - newlines: on the one hand they are necessary for tracking paragraphs, but on the other it might be simpler to ignore them for now
 
 ### refactoring
