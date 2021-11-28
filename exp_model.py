@@ -7,7 +7,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import re
 import tensorflow as tf
 from tensorflow.keras import layers
-from nltk import word_tokenize
+import process_text as pt
 
 # Constants
 
@@ -21,13 +21,14 @@ BATCH_SIZE = 64
 BUFFER_SIZE = 10000 # might be too high for word processing?
 
 class RNNTextModel(tf.keras.Model):
-    def __init__(self, vocab_size, embedding_dim, rnn_units, ids_from_words, words_from_ids):
+    def __init__(self, vocab_size, embedding_dim, rnn_units):
         super().__init__(self)
         self.embedding = layers.Embedding(input_dim=vocab_size, output_dim=embedding_dim)
         self.gru = layers.GRU(rnn_units, return_sequences=True, return_state=True)
         self.dense = layers.Dense(vocab_size)
         self.ids_from_words = ids_from_words
         self.words_from_ids = words_from_ids
+        self.dataset = dataset
 
     def call(self, inputs, states=None, return_state=False, training=False):
         x = inputs
@@ -43,24 +44,13 @@ class RNNTextModel(tf.keras.Model):
             return x
 
 class OneStep(tf.keras.Model):
-    def __init__(self, model, words_from_ids, ids_from_words, temperature=1.0):
+    def __init__(self, model, temperature=1.0):
         super().__init__()
         self.temperature = temperature
         self.model = model
         self.words_from_ids = words_from_ids
         self.ids_from_words = ids_from_words
 
-        # Create a mask to prevent "[UNK]" from being generated.
-        skip_ids = self.ids_from_words(['[UNK]'])[:, None]
-        sparse_mask = tf.SparseTensor(
-            # Put a -inf at each bad index.
-            values=[-float('inf')]*len(skip_ids),
-            indices=skip_ids,
-            # Match the shape to the vocabulary
-            dense_shape=[len(ids_from_words.get_vocabulary())])
-        self.prediction_mask = tf.sparse.to_dense(sparse_mask)
-
-#    @tf.function
     def generate_one_step(self, word, states=None):
         # Create proper shape for model and convert to id
         word_tensor = tf.constant(word, shape=(1,1))
@@ -91,49 +81,7 @@ class OneStep(tf.keras.Model):
         result = tf.strings.reduce_join(result, separator=" ")
         return result.numpy().decode('utf-8')
 
-
-def read_files():
-    '''
-    Arguments: filepath (string)
-    Returns: array of strings
-    '''
-    docs = []
-    path = PATH
-    filelist = os.listdir(path)
-    for f in filelist:
-        file = open(os.path.join(path + f), 'r')
-        docs.append(file.read())
-    return docs
-
-def clean_and_tokenize_doc(doc):
-    '''
-    tokenizes a single document it according to the decisions we make
-
-    arguments: doc (string)
-    returns: array of strings
-
-   '''
-   # remove lines that begin with markup (e.g., metadata)
-   # this will require splitting the doc by lines, possibly by paragraphs?
-
-   # filter formatting tags (e.g., <strong></strong>) but not <quote></quote>
-
-   # normalize quotes (make same ascii character)
-
-   # handle special characters
-   # e.g. one result was this: tf.Tensor([b'The opt operates us\xe2\x80\x94holy 2011\xe2\x80\x94 Collaboration facilities Logistic 1000 gained parallel'], shape=(1,), dtype=string)
-
-   # tokenize document
-
-    tokenized_doc = word_tokenize(doc)
-    return tokenized_doc
-
-def tokenize_documents(documents):
-    return [word for doc in documents for word in clean_and_tokenize_doc(doc)]
-
-docs = read_files()
-tokens = tokenize_documents(docs)
-
+tokens = pt.clean_and_tokenize_docs(PATH)
 print('Total Tokens: %d' % len(tokens))
 print('Unique Tokens: %d' % len(set(tokens)))
 
@@ -167,16 +115,40 @@ dataset = (
         .batch(BATCH_SIZE)
         )
 
-model = RNNTextModel(
+def build_model():
+
+    model = RNNTextModel(
         vocab_size = len(ids_from_words.get_vocabulary()),
         embedding_dim = EMBEDDING_DIM,
         rnn_units = RNN_UNITS,
-        ids_from_words = ids_from_words,
-        words_from_ids = words_from_ids
         )
+    loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
+    model.compile(optimizer="adam", loss=loss, metrics=["accuracy"])
 
 
-one_step_model = OneStep(model, words_from_ids, ids_from_words)
+    for input_example_batch, target_example_batch in dataset.take(1):
+        example_batch_predictions = model(input_example_batch)
+    return model
+
+
+model = None
+try:
+    print("Attempting to load model...")
+    model = tf.keras.models.load_model("./saved/rnn")
+    print("Model exists! loading model..." )
+except:
+    print("Model does not exist! Building now...")
+    model = build_model()
+
+checkpoint_dir = './checkpoints'
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
+checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_prefix)
+
+history = model.fit(dataset, epochs=EPOCHS, callbacks=[checkpoint_callback])
+model.save('./saved/rnn')
+
+one_step_model = OneStep(model)
 result = one_step_model.generate_sentence()
 
 print(result)
