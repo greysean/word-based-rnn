@@ -43,10 +43,10 @@ class RNNTextModel(tf.keras.Model):
         else:
             return x
 
-class OneStep(tf.keras.Model):
+class OneStep():
     def __init__(self, model, temperature=1.0):
         super().__init__()
-        self.temperature = temperature
+        model.temperature = temperature # Could be bad form to change an object's properties from within a class that contains it.
         self.model = model
         self.words_from_ids = words_from_ids
         self.ids_from_words = ids_from_words
