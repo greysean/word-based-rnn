@@ -43,6 +43,25 @@ class RNNTextModel(tf.keras.Model):
         else:
             return x
 
+# Creates an RNNTextModel object with parameters specified by file constants
+# Implicitly builds model using dataset variable taken from global scope, expects this to be defined.
+def build_model():
+
+    model = RNNTextModel(
+        vocab_size = len(ids_from_words.get_vocabulary()),
+        embedding_dim = EMBEDDING_DIM,
+        rnn_units = RNN_UNITS,
+        )
+    loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
+    model.compile(optimizer="adam", loss=loss, metrics=["accuracy"])
+
+
+    for input_example_batch, target_example_batch in dataset.take(1):
+        example_batch_predictions = model(input_example_batch)
+    return model
+
+
+# Utility class for generating text with an RNNTextModel
 class OneStep():
     def __init__(self, model, temperature=1.0):
         super().__init__()
@@ -81,6 +100,12 @@ class OneStep():
         result = tf.strings.reduce_join(result, separator=" ")
         return result.numpy().decode('utf-8')
 
+def split_input_target(sequence):
+        return sequence[:-1], sequence[1:]
+
+
+# Code
+
 tokens = pt.clean_and_tokenize_docs(PATH)
 print('Total Tokens: %d' % len(tokens))
 print('Unique Tokens: %d' % len(set(tokens)))
@@ -101,13 +126,9 @@ def text_from_ids(ids):
 all_ids = ids_from_words(tokens)
 ids_dataset = tf.data.Dataset.from_tensor_slices(all_ids)
 
-
-def split_input_target(sequence):
-        return sequence[:-1], sequence[1:]
-
+#Generate training data
 sequences = ids_dataset.batch(SEQ_LENGTH + 1, drop_remainder=True)
 dataset = sequences.map(split_input_target)
-
 # https://stackoverflow.com/questions/41175401/what-is-a-batch-in-tensorflow
 dataset = (
         dataset
@@ -115,22 +136,7 @@ dataset = (
         .batch(BATCH_SIZE)
         )
 
-def build_model():
-
-    model = RNNTextModel(
-        vocab_size = len(ids_from_words.get_vocabulary()),
-        embedding_dim = EMBEDDING_DIM,
-        rnn_units = RNN_UNITS,
-        )
-    loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
-    model.compile(optimizer="adam", loss=loss, metrics=["accuracy"])
-
-
-    for input_example_batch, target_example_batch in dataset.take(1):
-        example_batch_predictions = model(input_example_batch)
-    return model
-
-
+# Load model if saved version exists, else build.
 model = None
 try:
     print("Attempting to load model...")
@@ -140,6 +146,7 @@ except:
     print("Model does not exist! Building now...")
     model = build_model()
 
+# Train and save model
 checkpoint_dir = './checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
