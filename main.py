@@ -140,7 +140,8 @@ dataset = (
 model = None
 try:
     print("Attempting to load model...")
-    model = tf.keras.models.load_model("./saved/rnn")
+    model = build_model()
+    model.load_weights("./saved/rnn")
     print("Model exists! loading model..." )
 except:
     print("Model does not exist! Building now...")
@@ -153,7 +154,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath=checkpoint_prefix)
 
 history = model.fit(dataset, epochs=EPOCHS, callbacks=[checkpoint_callback])
-model.save('./saved/rnn')
+model.save_weights('./saved/rnn')
 
 one_step_model = OneStep(model)
 result = one_step_model.generate_sentence()
