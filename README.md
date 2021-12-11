@@ -11,8 +11,11 @@ source ~/.env/tensorflow/bin/activate
 python main.py.
 ```
 
-### cannot generate text from loading saved model
-I cannot for the life of me figure out how to make this work.
+### prepare dataset for training, validation
+
+you want to run the model until it overfits, and if you can't overfit, the model is too small
+training error should starting going to zero, but validation error should start rising
+when training / validation diverge
 
 ### text processing considerations
 

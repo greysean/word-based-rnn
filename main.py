@@ -8,6 +8,10 @@ import re
 import tensorflow as tf
 from tensorflow.keras import layers
 import process_text as pt
+import time
+
+# TODO timestamp checkpoints / saved weights
+now = time.strftime("%Y-%m-%d")
 
 # Constants
 
@@ -55,9 +59,9 @@ def build_model():
     loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
     model.compile(optimizer="adam", loss=loss, metrics=["accuracy"])
 
-
-    for input_example_batch, target_example_batch in dataset.take(1):
-        example_batch_predictions = model(input_example_batch)
+    model.build((64,100))
+    #for input_example_batch, target_example_batch in dataset.take(1):
+    #    example_batch_predictions = model(input_example_batch)
     return model
 
 
@@ -130,11 +134,34 @@ ids_dataset = tf.data.Dataset.from_tensor_slices(all_ids)
 sequences = ids_dataset.batch(SEQ_LENGTH + 1, drop_remainder=True)
 dataset = sequences.map(split_input_target)
 # https://stackoverflow.com/questions/41175401/what-is-a-batch-in-tensorflow
-dataset = (
-        dataset
-        .shuffle(BUFFER_SIZE)
-        .batch(BATCH_SIZE)
-        )
+#dataset = (
+#        dataset
+#        .shuffle(BUFFER_SIZE, seed=666)
+#        .batch(BATCH_SIZE)
+#        )
+
+# split into train, validation, test
+def get_dataset_partitions(ds, train_split=0.8, val_split=0.1, test_split=0.1, batch_size=64, shuffle_size=10000):
+    assert (train_split + test_split + val_split) == 1
+
+    ds_size = dataset.cardinality().numpy()
+    print("dataset size: {}".format(ds_size))
+
+    # Specify seed to always have the same split distribution between runs
+    ds = ds.shuffle(shuffle_size, seed=666)
+
+    train_size = int(train_split * ds_size)
+    val_size = int(val_split * ds_size)
+
+    train_ds = ds.take(train_size).batch(BATCH_SIZE)
+    val_ds = ds.skip(train_size).take(val_size)
+    test_ds = ds.skip(train_size).skip(val_size)
+
+    return train_ds, val_ds, test_ds
+
+train, validate, test = get_dataset_partitions(dataset)
+
+print("train.take: {}".format(train.take(1)))
 
 # Load model if saved version exists, else build.
 model = None
@@ -153,7 +180,7 @@ checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath=checkpoint_prefix)
 
-history = model.fit(dataset, epochs=EPOCHS, callbacks=[checkpoint_callback])
+history = model.fit(train, epochs=EPOCHS, callbacks=[checkpoint_callback])
 model.save_weights('./saved/rnn')
 
 one_step_model = OneStep(model)
