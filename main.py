@@ -9,6 +9,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 import process_text as pt
 import time
+import math
 
 # TODO timestamp checkpoints / saved weights
 now = time.strftime("%Y-%m-%d")
@@ -153,9 +154,13 @@ def get_dataset_partitions(ds, train_split=0.8, val_split=0.1, test_split=0.1, b
     train_size = int(train_split * ds_size)
     val_size = int(val_split * ds_size)
 
-    train_ds = ds.take(train_size).batch(BATCH_SIZE)
-    val_ds = ds.skip(train_size).take(val_size)
-    test_ds = ds.skip(train_size).skip(val_size)
+    # Make these sizes multiples of batch size to minimize the data dropped
+    train_size = math.ceil(train_size / batch_size) * batch_size
+    val_size = math.ceil(val_size / batch_size) * batch_size
+
+    train_ds = ds.take(train_size).batch(batch_size)
+    val_ds = ds.skip(train_size).take(val_size).batch(batch_size)
+    test_ds = ds.skip(train_size + val_size).take(ds_size-train_size-val_size).batch(batch_size, drop_remainder = True)
 
     return train_ds, val_ds, test_ds
 
@@ -200,7 +205,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 
 history = model.fit(
         train,
-        #validation_data = validate, # Not working
+        validation_data = validate,
         epochs=EPOCHS + latest_checkpoint,
         callbacks=[checkpoint_callback],
         initial_epoch = latest_checkpoint)
