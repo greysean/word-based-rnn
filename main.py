@@ -163,24 +163,47 @@ train, validate, test = get_dataset_partitions(dataset)
 
 print("train.take: {}".format(train.take(1)))
 
+# Find latest checkpoint file
+checkpoints = [f.name for f in os.scandir('./checkpoints')]
+if len(checkpoints)>0:
+    # Extract checkpoint number as int and find max
+    latest_checkpoint = max([int(print(c) or re.search('ckpt_(\\d+)\\.hdf5', c).group(1)) for c in checkpoints])
+else:
+    latest_checkpoint = 0
+
+print('latest checkpoint found:',latest_checkpoint)
+
+
 # Load model if saved version exists, else build.
 model = None
 try:
     print("Attempting to load model...")
     model = build_model()
-    model.load_weights("./saved/rnn")
+
+    path = f"./checkpoints/ckpt_{latest_checkpoint}.hdf5"
+    print("Loading from", path)
+    model.load_weights(path)
     print("Model exists! loading model..." )
-except:
+except Exception as e:
+    print(e)
     print("Model does not exist! Building now...")
     model = build_model()
+    latest_checkpoint = 0
 
 # Train and save model
 checkpoint_dir = './checkpoints'
-checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}.hdf5")
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    filepath=checkpoint_prefix)
+    filepath=checkpoint_prefix,
+    save_weights_only = True
+    )
 
-history = model.fit(train, epochs=EPOCHS, callbacks=[checkpoint_callback])
+history = model.fit(
+        train,
+        #validation_data = validate, # Not working
+        epochs=EPOCHS + latest_checkpoint,
+        callbacks=[checkpoint_callback],
+        initial_epoch = latest_checkpoint)
 model.save_weights('./saved/rnn')
 
 one_step_model = OneStep(model)
