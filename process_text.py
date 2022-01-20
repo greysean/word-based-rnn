@@ -21,7 +21,7 @@ def read_files(path):
     docs = []
     filelist = os.listdir(path)
     for f in filelist:
-        file = open(os.path.join(path + f), 'r')
+        file = open(os.path.join(path + f), 'r', encoding = "utf-8")
         docs.append(file.read())
     return docs
 
